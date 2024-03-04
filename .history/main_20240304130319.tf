@@ -189,27 +189,3 @@ resource "aws_lambda_function" "lambda_stop" {
 }
 
 
-
-resource "aws_cloudwatch_event_rule" "start_schedule" {
-  name        = "start-ec2-rule"
-  description = "Rule to start the instance"
-  state       = "ENABLED"
-  schedule_expression = "cron(0/15/30/45 * * * ? *)"
-}
-
-resource "aws_cloudwatch_event_rule" "stop_schedule" {
-  name        = "stop-ec2-rule"
-  description = "Rule to stop the instance 5 minutes after start"
-  state       = "ENABLED"
-  schedule_expression = "cron(5/20/35/50 * * * ? *)"
-}
-
-resource "aws_cloudwatch_event_target" "stop_target" {
-  rule      = aws_cloudwatch_event_rule.stop_schedule.name
-  arn       = aws_lambda_function.lambda_stop.arn
-}
-
-resource "aws_cloudwatch_event_target" "start_target" {
-  rule      = aws_cloudwatch_event_rule.start_schedule.name
-  arn       = aws_lambda_function.lambda_start.arn
-}

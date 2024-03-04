@@ -86,7 +86,7 @@ resource "aws_iam_policy" "start_policy" {
 }
 
 #Create a policy to allow stopping instances
-resource "aws_iam_policy" "stop_policy" {
+resource "aws_iam_policy" "stopping_policy" {
   name        = "stop_ec2_instance"
   description = "My serverless stop policy"
   # Terraform's "jsonencode" function converts a
@@ -106,59 +106,19 @@ resource "aws_iam_policy" "stop_policy" {
   })
 }
 
-#Create role for Lambda to assume
-data "aws_iam_policy_document" "lambda_assume" {
-  statement {
-    effect    = "Allow"
-    actions   = ["sts:AssumeRole"]
-    principals {
-      type        = "Service"
-      identifiers = ["lambda.amazonaws.com"]
-    }
-  }
-}
 
-# Create a role for Lambda function to start EC2 instances
-resource "aws_iam_role" "start_lambda_role" {
-  name               = "start_lambda_role"
-  assume_role_policy = data.aws_iam_policy_document.lambda_assume.json
-}
-
-# Attach the start policy to the role
-resource "aws_iam_policy_attachment" "start_lambda_policy_attachment" {
-  name       = "start_lambda_policy_attachment"
-  roles      = [aws_iam_role.start_lambda_role.name]
-  policy_arn = aws_iam_policy.start_policy.arn
-}
-
-# Create a role for Lambda function to stop EC2 instances
-resource "aws_iam_role" "stop_lambda_role" {
-  name               = "stop_lambda_role"
-  assume_role_policy = data.aws_iam_policy_document.lambda_assume.json
-}
-
-# Attach the stop policy to the role
-resource "aws_iam_policy_attachment" "stop_lambda_policy_attachment" {
-  name       = "stop_lambda_policy_attachment"
-  roles      = [aws_iam_role.stop_lambda_role.name]
-  policy_arn = aws_iam_policy.stop_policy.arn
-}
-
-#Lambda start package
 data "archive_file" "python_lambda_start_package" {  
   type = "zip"  
   source_file = "./code/start_function.py" 
   output_path = "lambda_start_function.zip"
 }
 
-#Lambda stop package
 data "archive_file" "python_lambda_stop_package" {  
   type = "zip"  
   source_file = "./code/stop_function.py" 
   output_path = "lambda_stop_function.zip"
 }
 
-#Lambd start function
 resource "aws_lambda_function" "lambda_start" {
   function_name = "Lambda_start_function"
   role          = aws_iam_role.lambda_role.arn
@@ -173,7 +133,6 @@ resource "aws_lambda_function" "lambda_start" {
   }
 }
 
-#Lambd stop function
 resource "aws_lambda_function" "lambda_stop" {
   function_name = "Lambda_stop_function"
   role          = aws_iam_role.lambda_role.arn
@@ -190,26 +149,3 @@ resource "aws_lambda_function" "lambda_stop" {
 
 
 
-resource "aws_cloudwatch_event_rule" "start_schedule" {
-  name        = "start-ec2-rule"
-  description = "Rule to start the instance"
-  state       = "ENABLED"
-  schedule_expression = "cron(0/15/30/45 * * * ? *)"
-}
-
-resource "aws_cloudwatch_event_rule" "stop_schedule" {
-  name        = "stop-ec2-rule"
-  description = "Rule to stop the instance 5 minutes after start"
-  state       = "ENABLED"
-  schedule_expression = "cron(5/20/35/50 * * * ? *)"
-}
-
-resource "aws_cloudwatch_event_target" "stop_target" {
-  rule      = aws_cloudwatch_event_rule.stop_schedule.name
-  arn       = aws_lambda_function.lambda_stop.arn
-}
-
-resource "aws_cloudwatch_event_target" "start_target" {
-  rule      = aws_cloudwatch_event_rule.start_schedule.name
-  arn       = aws_lambda_function.lambda_start.arn
-}
